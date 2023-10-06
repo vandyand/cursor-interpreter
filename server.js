@@ -2,7 +2,7 @@ const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const app = express();
 app.use(express.json());
-app.use(express.text());
+// app.use(express.text());
 
 let db = new sqlite3.Database("./database.db", (err) => {
   if (err) {
@@ -12,42 +12,56 @@ let db = new sqlite3.Database("./database.db", (err) => {
 });
 
 function generateId() {
-    let timestamp = Date.now();
-    let randomPart = Math.random().toString(36).substring(2, 9);
-    return `${timestamp}-${randomPart}`;
+  let timestamp = Date.now();
+  let randomPart = Math.random().toString(36).substring(2, 9);
+  return `${timestamp}-${randomPart}`;
 }
 
-app.post("/message/:serviceId?", (req, res) => {
-  let serviceId = req.params.serviceId || 'default';
+app.post("/message", (req, res) => {
+  let serviceId = req.body.serviceId || "default";
   let tableName = `messages_${serviceId}`;
-  db.run(`CREATE TABLE IF NOT EXISTS ${tableName}(id text PRIMARY KEY, body text)`, (err) => {
-    if (err) {
-      return console.error(err.message);
-    }
-  });
-
-  let id = generateId();
-  let body = req.body;
+  console.log(`Creating table ${tableName} if it doesn't exist`); // Added log
   db.run(
-    `INSERT INTO ${tableName}(id, body) VALUES(?, ?)`,
-    [id, body],
-    function (err) {
+    `CREATE TABLE IF NOT EXISTS ${tableName}(id text PRIMARY KEY, message text)`,
+    (err) => {
       if (err) {
-        return console.log(err.message);
+        return console.error(err.message);
       }
-      res.json({id: id, body: body});
+
+      let id = generateId();
+      let message = req.body.message;
+      console.log(`Inserting message with id ${id} into ${tableName}`); // Added log
+      db.run(
+        `INSERT INTO ${tableName}(id, message) VALUES(?, ?)`,
+        [id, message],
+        function (err) {
+          if (err) {
+            return console.log(err.message);
+          }
+          res.json({ id: id, serviceId: serviceId, message: message });
+        }
+      );
     }
   );
 });
 
-app.get("/messages/:serviceId?", (req, res) => {
-  let serviceId = req.params.serviceId || 'default';
+app.get("/messages", (req, res) => {
+  let serviceId = req.body.serviceId || "default";
   let tableName = `messages_${serviceId}`;
-  db.all(`SELECT id, body FROM ${tableName}`, [], (err, rows) => {
+  db.get(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, [tableName], (err, row) => {
     if (err) {
       throw err;
     }
-    res.send(rows);
+    if (row) {
+      db.all(`SELECT id, message FROM ${tableName}`, [], (err, rows) => {
+        if (err) {
+          throw err;
+        }
+        res.send(rows);
+      });
+    } else {
+      res.status(404).send(`Invalid serviceId ${serviceId}. Table ${tableName} does not exist`);
+    }
   });
 });
 

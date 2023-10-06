@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ "$1" == "build" ]; then
-  docker build -t micro-server .
+  docker build --no-cache -t micro-server .
   echo "Image built"
 elif [ "$1" == "start" ]; then
   docker run -p 3000:3000 -d micro-server
@@ -12,7 +12,7 @@ elif [ "$1" == "stop" ]; then
 elif [ "$1" == "reset" ]; then
   docker stop $(docker ps -q --filter ancestor=micro-server)
   echo "Server stopped"
-  docker run -p 3000:3000 -d micro-server
+  docker run --rm -p 3000:3000 -d micro-server
   echo "Server started"
 elif [ "$1" == "list" ]; then
   docker ps --filter ancestor=micro-server
